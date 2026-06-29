@@ -1,0 +1,31 @@
+[package]
+name = "xrp-key-to-address"
+version = "0.1.0"
+edition = "2021"
+authors = ["xiongchenyu6@gmail.com"]
+description = "Convert XRP private keys to addresses"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stars-labs/crypto-rust-tools"
+keywords = ["xrp", "ripple", "address", "cli", "key-conversion"]
+categories = ["cryptography", "command-line-utilities"]
+
+[[bin]]
+name = "xrp_key_to_address"
+path = "src/main.rs"
+
+[[example]]
+name = "mnemonic_to_address"
+path = "examples/mnemonic_to_address.rs"
+
+[dependencies]
+bip32 = { version = "0.5", default-features = false, features = ["alloc", "secp256k1"] }
+bip39 = "2"
+clap = { version = "4.4", features = ["derive"] }
+hex = "0.4"
+bs58 = "0.5"
+anyhow = "1.0"
+sha2 = "0.10"
+ripemd = "0.1"
+secp256k1 = "0.29"
+ed25519-dalek = "2.1"
+xrpl_rust = { package = "xrpl-rust", version = "1.0" }

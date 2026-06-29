@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "xrp-seeds-to-pk"
+version = "0.1.0"
+description = ""
+authors = ["freeman <xiongchenyu6@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+xrpl-py = "^2.3.0"
+bip-utils = "^2.7.1"
+mnemonic = "^0.20"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
