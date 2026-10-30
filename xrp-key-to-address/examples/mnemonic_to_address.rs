@@ -12,8 +12,7 @@ use bip39::Mnemonic;
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 
-const MNEMONIC: &str =
-    "finger dune cabin open outside aim hotel run yellow lesson siege birth";
+const MNEMONIC: &str = "finger dune cabin open outside aim hotel run yellow lesson siege birth";
 
 fn main() -> Result<()> {
     let index: u32 = 0;
@@ -21,8 +20,8 @@ fn main() -> Result<()> {
     println!("{phrase}");
 
     // 1. mnemonic -> 64-byte BIP39 seed (PBKDF2, empty passphrase)
-    let mnemonic = Mnemonic::parse_normalized(phrase)
-        .map_err(|e| anyhow::anyhow!("invalid mnemonic: {e}"))?;
+    let mnemonic =
+        Mnemonic::parse_normalized(phrase).map_err(|e| anyhow::anyhow!("invalid mnemonic: {e}"))?;
     let seed = mnemonic.to_seed("");
 
     // 2. BIP32/BIP44 derivation along m/44'/144'/0'/0/<index>
