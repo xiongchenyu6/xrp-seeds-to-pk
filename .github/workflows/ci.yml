@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust (xrp-key-to-address)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: xrp-key-to-address
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: xrp-key-to-address
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets
+      - run: cargo build
+      - run: cargo test
+
+  scripts:
+    name: Script syntax (main.js, main.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check main.js
+      - run: python3 -m py_compile main.py
