@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust (xrp-key-to-address)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: xrp-key-to-address
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: xrp-key-to-address
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets
+      - run: cargo build
+      - run: cargo test
+
+  scripts:
+    name: Script syntax (main.js, main.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check main.js
+      - run: python3 -m py_compile main.py
+
+  dependabot-merge:
+    # Merge Dependabot PRs once the checks above pass. GITHUB_TOKEN is enough
+    # for dependency bumps; PRs that edit .github/workflows (Actions bumps) need
+    # DEPENDABOT_MERGE_TOKEN, a PAT with the Workflows permission stored as a
+    # Dependabot secret (Dependabot runs cannot read ordinary Actions secrets).
+    needs: [rust, scripts]
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge the Dependabot PR
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN || github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --squash
