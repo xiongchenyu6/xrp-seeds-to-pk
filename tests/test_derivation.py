@@ -64,6 +64,26 @@ class DerivationTests(unittest.TestCase):
                     self.assertEqual(wallet.private_key, private)
                     self.assertEqual(wallet.classic_address, address)
 
+    def test_derivation_does_not_use_python_ecdsa_private_operations(self):
+        # CVE-2024-23342 has no upstream fix. Fail if this path starts using
+        # python-ecdsa private-key generation, signing, or ECDH operations.
+        from contextlib import ExitStack
+        import ecdsa
+
+        with ExitStack() as stack:
+            for owner, names in (
+                (ecdsa.SigningKey, ("generate", "from_string", "from_secret_exponent",
+                                    "sign", "sign_digest", "sign_deterministic",
+                                    "sign_digest_deterministic")),
+                (ecdsa.ECDH, ("generate_private_key", "generate_sharedsecret",
+                              "generate_sharedsecret_bytes")),
+            ):
+                for name in names:
+                    stack.enter_context(patch.object(
+                        owner, name, side_effect=AssertionError("python-ecdsa private operation forbidden")
+                    ))
+            self.test_synthetic_entropy_and_address_indices()
+
     def test_ripple_uses_native_secp256k1_backend(self):
         self.assertIn("coincurve", Secp256k1PrivateKey.__module__)
 
