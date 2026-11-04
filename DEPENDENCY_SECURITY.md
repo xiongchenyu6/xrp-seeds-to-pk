@@ -46,3 +46,35 @@ still protects future feature selection and resolves the vulnerable package reco
 
 Dependabot alerts on the default branch remain open until the fix is merged and
 GitHub rescans. A draft PR and successful tests do not close those alerts.
+
+## Rust family-mode correction and compatibility
+
+The old secp256k1 family derivation hashed 42 bytes by inserting an extra `0x00`
+between the compressed root public key and account index. The [XRPL specification](https://xrpl.org/docs/concepts/accounts/cryptographic-keys#secp256k1-key-derivation)
+requires 41 bytes: 33-byte compressed public root, 4-byte big-endian account index,
+and 4-byte big-endian sequence. The extra byte changes the intermediate scalar,
+final private/public keys, and account address. This is not BIP32/BIP44 derivation
+and does not affect the Python mnemonic conversion.
+
+`--mode family` now uses the standard 41-byte layout. The family entry in
+`--mode all` does too. Both emit a compatibility notice on stderr.
+`--mode legacy-family` explicitly reproduces the historical 42-byte layout and
+prints a warning; use it only to identify addresses created with the old mode.
+The default `root` mode, raw private-key handling and Ed25519 derivation are
+unchanged. Existing CLI mode names and stdin input remain supported.
+
+An old family address and its corrected standard address are distinct accounts.
+Changing a derivation mode does not transfer balances or authorization. Do not
+overwrite existing wallet records or assume a newly derived address is the same
+funded account. The seed alone does not establish which mode created a wallet.
+Existing wallets require independent address/provenance verification; this change
+performs no wallet migration, transaction signing, balance lookup, or transfer.
+
+Regression fixtures contain only synthetic entropy (zero bytes, incrementing
+bytes, and `0xff` bytes), with account indices 0, 1, 7 and `u32::MAX`. All 12
+standard addresses were cross-checked offline against official
+[ripple-keypairs 3.1.0](https://github.com/XRPLF/xrpl.js/tree/main/packages/ripple-keypairs)
+and an independent Python hashlib/coincurve implementation. Account-zero keys
+also match xrpl-py 5.2.0's ECPy implementation. The three legacy CLI vectors match
+the pre-fix binary. Rust tests check frozen standard/legacy addresses, mode
+selection, stdin, `--both`, compatibility notices and the unchanged default mode.
