@@ -29,8 +29,10 @@ struct Args {
 enum DerivationMode {
     /// Use root key directly (simple mode)
     Root,
-    /// Use family seed derivation (original XRP protocol)
+    /// Standard XRPL account derivation; pre-fix results require legacy-family
     Family,
+    /// Reproduce the historical nonstandard family addresses (recovery only)
+    LegacyFamily,
     /// Use xrpl.js/ripple-keypairs derivation (most wallets)
     Xrpl,
     /// Show all derivation modes
@@ -173,6 +175,15 @@ try {{
 }
 
 fn derive_secp256k1_family_account_key(seed: &[u8], account_index: u32) -> Result<Vec<u8>> {
+    derive_secp256k1_family_account_key_with_format(seed, account_index, false)
+}
+
+// Keep the historical extra byte available only through explicit legacy mode.
+fn derive_secp256k1_family_account_key_with_format(
+    seed: &[u8],
+    account_index: u32,
+    legacy_padding: bool,
+) -> Result<Vec<u8>> {
     // Step 1: Derive the root/generator private key
     let root_private = derive_secp256k1_root_private_key(seed)?;
 
@@ -185,10 +196,14 @@ fn derive_secp256k1_family_account_key(seed: &[u8], account_index: u32) -> Resul
     // Step 3: Derive intermediate key for account
     let mut sub_sequence: u32 = 0;
     loop {
-        // Create buffer: public_root + discriminant (0x00) + account_index + sub_sequence
-        let mut to_hash = Vec::new();
+        // XRPL hashes 41 bytes: compressed public root (33), account index (4),
+        // and key sequence (4), both integers big-endian. No discriminator byte.
+        // https://xrpl.org/docs/concepts/accounts/cryptographic-keys#secp256k1-key-derivation
+        let mut to_hash = Vec::with_capacity(if legacy_padding { 42 } else { 41 });
         to_hash.extend_from_slice(&root_public_bytes);
-        to_hash.push(0x00); // discriminant for derived keys
+        if legacy_padding {
+            to_hash.push(0x00);
+        }
         to_hash.extend_from_slice(&account_index.to_be_bytes());
         to_hash.extend_from_slice(&sub_sequence.to_be_bytes());
 
@@ -319,6 +334,12 @@ fn address_from_public_key(public_key_bytes: &[u8]) -> Result<String> {
 
 fn private_key_to_xrp_addresses(input: &str, show_both: bool, mode: DerivationMode) -> Result<()> {
     let input = input.trim();
+    if matches!(mode, DerivationMode::Family | DerivationMode::All) {
+        eprintln!("Note: family now uses standard XRPL derivation. To reproduce family addresses from older releases, select legacy-family. Changing modes does not migrate funds.");
+    }
+    if mode == DerivationMode::LegacyFamily {
+        eprintln!("Warning: legacy-family reproduces nonstandard addresses from older releases. Use only to identify existing wallets; it does not migrate funds.");
+    }
 
     if input.starts_with('s') {
         // It's a Base58 secret key
@@ -376,6 +397,9 @@ fn private_key_to_xrp_addresses(input: &str, show_both: bool, mode: DerivationMo
                     let private_key = match mode {
                         DerivationMode::Root => derive_secp256k1_root_private_key(&seed),
                         DerivationMode::Family => derive_secp256k1_family_account_key(&seed, 0),
+                        DerivationMode::LegacyFamily => {
+                            derive_secp256k1_family_account_key_with_format(&seed, 0, true)
+                        }
                         DerivationMode::Xrpl => {
                             // For Xrpl mode, we get the address directly
                             match derive_secp256k1_xrpl_address(&seed) {
@@ -421,6 +445,12 @@ fn private_key_to_xrp_addresses(input: &str, show_both: bool, mode: DerivationMo
                         }
                         DerivationMode::Family => {
                             let private_key = derive_secp256k1_family_account_key(&seed, 0)?;
+                            let address = secp256k1_address_from_private_key(&private_key)?;
+                            println!("{}", address);
+                        }
+                        DerivationMode::LegacyFamily => {
+                            let private_key =
+                                derive_secp256k1_family_account_key_with_format(&seed, 0, true)?;
                             let address = secp256k1_address_from_private_key(&private_key)?;
                             println!("{}", address);
                         }
@@ -509,3 +539,6 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod family_tests;
